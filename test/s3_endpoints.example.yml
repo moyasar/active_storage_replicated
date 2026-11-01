@@ -1,0 +1,11 @@
+primary: http://127.0.0.1:19000
+replica: http://127.0.0.1:19090
+access_key_id: devkey
+secret_access_key: devsecret123
+
+# For a real provider's scratch buckets, uncomment and fill in:
+# region: me-east-1
+# force_path_style: false
+# create_buckets: false
+# primary_bucket: asr-primary
+# replica_bucket: asr-replica
