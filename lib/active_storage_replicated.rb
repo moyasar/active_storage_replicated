@@ -11,6 +11,7 @@ module ActiveStorageReplicated
   autoload :Audit, "active_storage_replicated/audit"
   autoload :Scheduler, "active_storage_replicated/scheduler"
   autoload :Status, "active_storage_replicated/status"
+  autoload :Redirect, "active_storage_replicated/redirect"
 
   @config = Configuration.new
   @health = Health.new
@@ -53,6 +54,10 @@ module ActiveStorageReplicated
     # Pending work and the last audit for each replicated service, for dashboards and health checks.
     def status
       Status.new(services).to_h
+    end
+
+    def redirect_url(key, expires_in:, service: ActiveStorage::Blob.service, **options)
+      Redirect.url(key, expires_in: expires_in, service: service, **options)
     end
   end
 end

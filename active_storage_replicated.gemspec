@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
   spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
-    Dir["{app,lib}/**/*", "MIT-LICENSE", "README.md"]
+    Dir["{app,config,lib}/**/*", "MIT-LICENSE", "README.md"]
   end
 
   spec.add_dependency "activerecord", ">= 7.2", "< 9"
