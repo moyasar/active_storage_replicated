@@ -33,4 +33,7 @@ ActiveStorageReplicated.configure do |config|
 
   # Limit the audit to these key prefixes, for example when several apps share a bucket.
   # config.audit_prefixes = nil
+
+  # Host and protocol for redirect_url links. nil uses the request's host or the app's default_url_options.
+  # config.redirect_url_options = { host: "app.example.com", protocol: "https" }
 end

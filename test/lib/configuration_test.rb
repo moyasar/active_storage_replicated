@@ -26,7 +26,8 @@ class ConfigurationTest < ActiveSupport::TestCase
       audit_compare_checksums: [ nil, 1 ],
       audit_at: [ "3", "25:00", "03:60", :daily ],
       audit_prefixes: [ [], [ "" ], [ "a/", "a/b/" ], [ 1 ] ],
-      sync_copies: [ 0, "1", :some, nil ]
+      sync_copies: [ 0, "1", :some, nil ],
+      redirect_url_options: [ "api.example.com", [ :host ] ]
     }.each do |setting, values|
       values.each do |value|
         assert_raises(ArgumentError, "#{setting} = #{value.inspect}") { @config.public_send(:"#{setting}=", value) }

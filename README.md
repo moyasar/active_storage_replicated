@@ -217,6 +217,7 @@ Every setting is checked when it is set, so a wrong value fails at boot.
 | `audit_sort_limit` | `200000` | Keys the audit may sort in memory when an endpoint does not list keys in order. Above it, that audit fails and is reported. Sorting takes roughly 0.5 MB of memory per 1,000 keys per endpoint. |
 | `read_fallback_on_not_found` | `false` | When an endpoint answers "not found", ask the next one too. Off by default, so a real 404 costs one request. Turn it on if files can go missing from an endpoint outside the gem, for example after restoring a bucket. |
 | `audit_compare_checksums` | `true` | Compare ETags when two copies have the same size. Turn it off for S3-compatible stores whose ETags are not MD5 checksums. |
+| `redirect_url_options` | `nil` | URL options for `redirect_url` links, for example `{ host: "api.example.com", protocol: "https" }`. `nil` uses the request's host or the app's `default_url_options`. |
 | `logger` | `nil` | Logger. `nil` uses `Rails.logger`. |
 
 ### How an upload spreads
@@ -309,6 +310,35 @@ end
 - If it fails after your block started, the call raises, because a stream cannot be replayed.
 - If your block raises, you get your own exception back, and the endpoint is not blamed.
 - The catch-up copies the file to the other endpoints a few seconds later.
+
+### Links that follow failover
+
+`storage.url` signs a link against one endpoint when it is made. If that endpoint goes down before the link is
+opened, the link fails until the endpoint is back. For links that live for hours or days, such as links in emails
+or export downloads, use a redirect link instead:
+
+```ruby
+storage.redirect_url("invoices/1.pdf", expires_in: 7.days, filename: "invoice.pdf", disposition: :attachment,
+  content_type: "application/pdf")
+# => "https://app.example.com/rails/active_storage/replicated/eyJfcmFpbHMi..."
+
+ActiveStorageReplicated.redirect_url("invoices/1.pdf", service: ActiveStorage::Blob.service, expires_in: 7.days)
+# the same, and works with any service, so code that uses Disk in development does not need a branch
+```
+
+- The link points at the app. When it is opened, the app asks the endpoints in order, skips those still waiting
+  for a copy and those that fail, and redirects to a short-lived signed link on the first one that has the file.
+- It expires after `expires_in`, which is required. An expired or altered link, and a link to a deleted file,
+  answer 404. If every endpoint is failing, the click raises the endpoint's error, like a download does.
+- Each click costs one request to an endpoint, to check that it holds the file.
+- `filename` defaults to the last part of the key and `disposition` to `:inline`.
+- The host comes from `redirect_url_options`, then `ActiveStorage::Current.url_options`, then
+  `Rails.application.routes.default_url_options`. Pass `host:` to override it for one link. Without any of them,
+  making the link raises. The host must serve the app's routes and be reachable by whoever opens the link.
+- The link is signed with the app's `secret_key_base`, so it must be opened on the app that made it, and the
+  service must be one from `storage.yml`.
+- The route is `GET /rails/active_storage/replicated/:token`, under `config.active_storage.routes_prefix`.
+- Links made with `rails_blob_url` or the proxy routes already pick an endpoint when opened; they need nothing.
 
 ### Reach one endpoint directly
 
@@ -411,7 +441,12 @@ or deletes. A file one app wrote while an endpoint was down is unknown to the ot
 endpoint that does not have it yet and answer "not found". Give both apps one table:
 
 - Point `database` in one app at a connection to the other app's database that may write the two gem tables.
+  Run the installer's migration in the app that owns that database only.
 - Use the same service name and the same target names for the same bucket in both `storage.yml` files.
+  Tasks and delete records are kept per service name, so under another name the audit cannot see the other
+  app's deletes and copies the files back.
+
+Then either app's workers finish the other's pending work, and one audit a day covers both.
 
 If the tables must stay separate, turn on `read_fallback_on_not_found` in both apps, run the audit in one app only,
 and accept that a delete made by the other app can be undone by that audit.
@@ -445,7 +480,8 @@ Point the targets at `http://127.0.0.1:19000` and `http://127.0.0.1:19090`. Use 
 - A stream goes to one endpoint first, then is copied.
 - A direct upload that finishes later than its link's lifetime is copied when the next attempt finds it; copies wait
   for a late upload for up to a day.
-- Links saved in your database point at one endpoint and do not follow failover.
+- Links from `storage.url` point at one endpoint and do not follow failover. Use `redirect_url` for links that
+  live longer than a few minutes.
 - A file on an endpoint with SSE-KMS or customer keys cannot be checked by checksum; the audit compares its size only.
 - Postgres only: the gem uses row locks with `SKIP LOCKED`, partial indexes, `jsonb` and the database clock for leases.
 - The gem's bookkeeping has no timeout of its own. Behind PgBouncer, set `query_wait_timeout` and the app's
@@ -471,7 +507,7 @@ The test app's database settings are in `test/dummy/config/database.yml`: Postgr
 password `postgres`.
 
 ```shell
-docker run -d --name asr-pg -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=postgres postgres:17
+docker run -d --name asr-pg -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=postgres postgres:19
 
 bin/rails db:test:prepare
 bin/rails test                         # Rails 8.1

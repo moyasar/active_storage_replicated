@@ -3,6 +3,7 @@ module ActiveStorageReplicated
   # so a mistake fails at boot instead of in production traffic.
   class Configuration
     attr_accessor :database, :logger
+    attr_reader :redirect_url_options
     attr_reader :table_name,
       :audits_table_name,
       :interval,
@@ -28,6 +29,7 @@ module ActiveStorageReplicated
     def initialize
       @database = nil
       @logger = nil
+      @redirect_url_options = nil
       @table_name = "active_storage_replicated_tasks"
       @audits_table_name = "active_storage_replicated_audits"
       @interval = 15
@@ -59,6 +61,14 @@ module ActiveStorageReplicated
       end
 
       self
+    end
+
+    def redirect_url_options=(value)
+      unless value.nil? || value.is_a?(Hash)
+        raise ArgumentError, "redirect_url_options must be a hash like { host: \"api.example.com\", protocol: \"https\" } or nil, got #{value.inspect}"
+      end
+
+      @redirect_url_options = value&.symbolize_keys
     end
 
     def table_name=(value)

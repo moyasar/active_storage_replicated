@@ -224,6 +224,22 @@ module ActiveStorage
       url_target(key).url(key, **options)
     end
 
+    def checked_url(key, **options)
+      holder = read(key) do |target|
+        unless target.exist?(key)
+          raise ActiveStorage::FileNotFoundError.new(key)
+        end
+
+        target
+      end
+
+      holder.url(key, **options)
+    end
+
+    def redirect_url(key, expires_in:, **options)
+      ActiveStorageReplicated::Redirect.url(key, expires_in: expires_in, service: self, **options)
+    end
+
     # The browser uploads straight to one endpoint. Copies to the others are queued now, from that endpoint,
     # to run once the signed link has expired. A copy waits for a late upload for up to a day.
     def url_for_direct_upload(key, expires_in:, **options)
