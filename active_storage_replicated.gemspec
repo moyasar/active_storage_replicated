@@ -3,8 +3,8 @@ require_relative "lib/active_storage_replicated/version"
 Gem::Specification.new do |spec|
   spec.name        = "active_storage_replicated"
   spec.version     = ActiveStorageReplicated::VERSION
-  spec.authors     = [ "Omar Alshboul" ]
-  spec.email       = [ "omar.abdula@gmail.com" ]
+  spec.authors     = [ "Moyasar Dev Team" ]
+  spec.email       = [ "developers@moyasar.com" ]
   spec.homepage    = "https://github.com/moyasar/active_storage_replicated"
   spec.summary     = "Active Storage service that replicates files across several endpoints with automatic failover."
   spec.description = "Writes and deletes go to every healthy endpoint, reads come from the first one that works, " \
