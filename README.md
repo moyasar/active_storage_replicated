@@ -507,7 +507,7 @@ The test app's database settings are in `test/dummy/config/database.yml`: Postgr
 password `postgres`.
 
 ```shell
-docker run -d --name asr-pg -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=postgres postgres:17
+docker run -d --name asr-pg -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=postgres postgres:19
 
 bin/rails db:test:prepare
 bin/rails test                         # Rails 8.1
