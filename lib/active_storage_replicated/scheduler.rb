@@ -150,7 +150,7 @@ module ActiveStorageReplicated
           return []
         end
 
-        services.each do |service|
+        services.select { |service| service.targets.size > 1 }.each do |service|
           run = AuditRun.claim(service_name: service.name, run_on: now.to_date)
           if run
             return [ [ service, run ] ]

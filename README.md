@@ -123,7 +123,7 @@ per environment: Rails loads `config/storage/production.yml` when it exists.
 | Key | Required | Meaning |
 | --- | --- | --- |
 | `service` | Yes | Always `Replicated`. |
-| `targets` | Yes | Names of two or more services in this file. The order matters: the first endpoint is preferred for reads and links, and it is the reference when the audit finds two different versions of a file. |
+| `targets` | Yes | Names of one or more services in this file. With one, the service passes every call to it, records deletes, and skips the audit; add the others later without touching code. The order matters: the first endpoint is preferred for reads and links, and it is the reference when the audit finds two different versions of a file. |
 | `public` | No | `true` for a bucket whose files are publicly readable. Set it on each target too. Default `false`. |
 
 **Each target**

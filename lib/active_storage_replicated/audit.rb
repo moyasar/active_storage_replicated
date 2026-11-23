@@ -36,6 +36,10 @@ module ActiveStorageReplicated
     # not, as some self-hosted S3 servers do not, every listing is sorted in memory, up to `audit_sort_limit`
     # keys. Acting during a walk that turns out to be unsorted would treat keys as missing that are not.
     def run
+      if @service.targets.size < 2
+        return { checked: 0, copies: 0, deletes: 0, skipped: 0 }
+      end
+
       unsorted = @service.targets.find { |target| !sorted_listing?(target) }
       if unsorted
         ActiveStorageReplicated.logger.warn("[ActiveStorageReplicated::Audit] #{unsorted.name} lists out of order; sorting listings in memory")

@@ -28,8 +28,8 @@ module ActiveStorage
     end
 
     def initialize(targets:, public: false)
-      if targets.size < 2
-        raise ArgumentError, "A replicated service needs at least two targets"
+      if targets.empty?
+        raise ArgumentError, "A replicated service needs at least one target"
       end
 
       @targets = targets
@@ -338,8 +338,13 @@ module ActiveStorage
     end
 
     # Yields an IO that can be read more than once. A stream that cannot be rewound is copied to a temporary
-    # file first, so every endpoint receives the whole file.
+    # file first, so every endpoint receives the whole file. A plain string is the content itself, as the S3
+    # service takes it; copying it as a stream would read the file it names.
     def with_replayable(io)
+      if io.is_a?(String)
+        return yield(StringIO.new(io))
+      end
+
       if replayable?(io)
         return yield(io)
       end
@@ -699,10 +704,15 @@ module ActiveStorage
     end
 
     # An interrupted write may have reached some endpoints, and writers in the pool may still be finishing.
-    # Queue a settle for every endpoint a few minutes later, so whatever arrived ends up everywhere.
+    # Queue a settle for every endpoint a few minutes later, so whatever arrived ends up everywhere. With one
+    # endpoint there is nothing to settle against.
     SETTLE_DELAY = 5 * 60
 
     def settle_later(key)
+      if targets.one?
+        return
+      end
+
       run_after = Time.current + SETTLE_DELAY
       recorded = bookkeeping("settle #{key}") do
         target_names.map do |target|

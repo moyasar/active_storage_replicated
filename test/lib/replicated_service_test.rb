@@ -8,9 +8,9 @@ class ReplicatedServiceTest < ActiveSupport::TestCase
     @primary, @replica = @service.targets
   end
 
-  test "needs at least two targets" do
+  test "needs at least one target" do
     assert_raises(ArgumentError) do
-      ActiveStorage::Service::ReplicatedService.new(targets: [ @primary ])
+      ActiveStorage::Service::ReplicatedService.new(targets: [])
     end
   end
 
@@ -20,6 +20,13 @@ class ReplicatedServiceTest < ActiveSupport::TestCase
     assert_equal "pdf", read_back(@primary, "invoices/1.pdf")
     assert_equal "pdf", read_back(@replica, "invoices/1.pdf")
     assert_equal 0, ActiveStorageReplicated::Task.count
+  end
+
+  test "a plain string is uploaded as the content" do
+    @service.upload("notes/1.txt", "plain")
+
+    assert_equal "plain", read_back(@primary, "notes/1.txt")
+    assert_equal "plain", read_back(@replica, "notes/1.txt")
   end
 
   test "upload succeeds when one target is down and queues a copy for it" do

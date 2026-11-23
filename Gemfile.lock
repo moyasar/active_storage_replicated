@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    active_storage_replicated (0.1.0)
+    active_storage_replicated (0.2.0)
       activerecord (>= 7.2, < 9)
       activestorage (>= 7.2, < 9)
       concurrent-ruby (~> 1.1)
