@@ -1,5 +1,6 @@
 require "test_helper"
 require "active_storage/service/s3_service"
+require "net/http"
 
 # Runs against two real S3-compatible endpoints. Skipped unless test/s3_endpoints.yml exists;
 # copy test/s3_endpoints.example.yml to create it.
@@ -161,7 +162,61 @@ class S3EndpointsTest < ActiveSupport::TestCase
     file&.close!
   end
 
+  test "one endpoint stores, serves and deletes like the plain S3 service" do
+    single = replicated(@primary)
+    key = "#{@prefix}/single.pdf"
+    options = {
+      checksum: OpenSSL::Digest::MD5.base64digest("%PDF"), content_type: "application/pdf",
+      filename: ActiveStorage::Filename.new("single.pdf"), disposition: :attachment, custom_metadata: { "origin" => "test" }
+    }
+
+    single.upload(key, StringIO.new("%PDF"), **options)
+    @primary.upload("#{key}.plain", StringIO.new("%PDF"), **options)
+
+    assert_equal stored_attributes(@primary, "#{key}.plain"), stored_attributes(@primary, key)
+    assert_equal "%PDF", single.download(key)
+    assert_equal "PD", single.download_chunk(key, 1..2)
+    assert single.exist?(key)
+    assert_equal "%PDF", Net::HTTP.get(URI(single.url(key, expires_in: 5.minutes, filename: ActiveStorage::Filename.new("single.pdf"),
+      disposition: :inline, content_type: "application/pdf")))
+    assert_equal 0, ActiveStorageReplicated::Task.count
+
+    single.delete(key)
+
+    assert_not @primary.exist?(key)
+    assert_raises(ActiveStorage::FileNotFoundError) { single.download(key) }
+    assert_predicate ActiveStorageReplicated::Task.sole, :done?
+  end
+
+  test "one endpoint takes a multipart upload and a folder delete" do
+    single = replicated(@primary)
+    file = Tempfile.new("multipart")
+    file.write("x" * 6.megabytes)
+    file.flush
+    @primary.define_singleton_method(:multipart_upload_threshold) { 5.megabytes }
+
+    single.upload("#{@prefix}/folder/big.bin", file)
+    single.upload("#{@prefix}/folder/small.txt", "small")
+
+    assert_equal 6.megabytes, @primary.bucket.object("#{@prefix}/folder/big.bin").content_length
+    assert_equal "small", single.download("#{@prefix}/folder/small.txt")
+
+    single.delete_prefixed("#{@prefix}/folder/")
+
+    assert_not @primary.exist?("#{@prefix}/folder/big.bin")
+    assert_not @primary.exist?("#{@prefix}/folder/small.txt")
+    assert_equal 0, ActiveStorageReplicated::Task.pending.count
+  ensure
+    file&.close!
+  end
+
   private
+
+  def stored_attributes(target, key)
+    object = target.bucket.object(key)
+    object.load
+    [ object.content_type, object.content_disposition, object.metadata, object.content_length, object.etag ]
+  end
 
   def s3_target(name, endpoint, bucket)
     target = ActiveStorage::Service::S3Service.new(

@@ -190,9 +190,10 @@ module ActiveStorageReplicated
 
     # The write may have reached the endpoint after the task was replaced or taken, so the endpoint may hold
     # something the newer intent did not want. Queue a task that makes it match the other endpoints that are
-    # up to date: a copy of their file, or a delete if all of them answer that they do not have it.
+    # up to date: a copy of their file, or a delete if all of them answer that they do not have it. A service
+    # with one endpoint has no other endpoint to match.
     def correct_after_lost_lease(task)
-      if task.operation_delete_prefixed?
+      if task.operation_delete_prefixed? || @services[task.service_name].targets.one?
         return
       end
 
